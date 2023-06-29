@@ -35,15 +35,13 @@
               <td><%= id %></td>
               <td><%= urls[id] %></td>
               <td>
-                <a href="/urls/<%= id %>">
-                  <button class="btn btn-primary">Edit</button>
-                </a>
+                <form method="POST" action="/urls/<%= id %>/edit" style="display:inline;">
+                  <button type="submit">Edit</button>
+                </form>
               </td>
               <td>
-                <form method="POST" action="/urls/<%= id %>/delete">
-                  <div class="d-flex">
-                    <button type="submit" class="btn btn-danger">Delete</button>
-                  </div>
+                <form method="POST" action="/urls/<%= id %>/delete" style="display:inline;">
+                  <button type="submit">Delete</button>
                 </form>
               </td>
             </tr>
