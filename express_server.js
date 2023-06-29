@@ -1,15 +1,13 @@
-/* eslint-disable no-shadow */
-/* eslint-disable no-undef */
 /* eslint-disable no-console */
 /* eslint-disable no-plusplus */
 /* eslint-disable no-unused-vars */
 /* eslint-disable import/no-extraneous-dependencies */
-
 const express = require('express');
+const cookieParser = require('cookie-parser');
 const session = require('express-session');
 
 const app = express();
-const PORT = 8080; // default port 8080
+const PORT = 8080;
 
 function generateRandomString() {
   const characters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -30,6 +28,7 @@ const urlDatabase = {
 };
 
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 // Session handling middleware
 app.use(
@@ -44,19 +43,31 @@ app.get('/hello', (req, res) => {
   res.send('<html><body>Hello <b>World</b></body></html>\n');
 });
 app.get('/urls', (req, res) => {
-  const templateVars = { urls: urlDatabase };
+  const templateVars = {
+    username: req.cookies.username,
+    urls: urlDatabase,
+  };
   res.render('urls_index', templateVars);
 });
+
 app.get('/urls/new', (req, res) => {
-  res.render('urls_new');
+  const templateVars = {
+    username: req.cookies.username,
+  };
+  res.render('urls_new', templateVars);
 });
+
 app.get('/urls/:id', (req, res) => {
   const shortURL = req.params.id;
   const longURL = urlDatabase[shortURL];
 
   if (longURL) {
     const templateVars = {
-      shortURL, longURL, id: shortURL, url: { id: shortURL, longURL },
+      username: req.cookies.username,
+      shortURL,
+      longURL,
+      id: shortURL,
+      url: { id: shortURL, longURL },
     };
     res.render('urls_show', templateVars);
   } else {
