@@ -1,91 +1,105 @@
+/* eslint-disable no-shadow */
+/* eslint-disable no-undef */
+/* eslint-disable no-console */
 /* eslint-disable no-plusplus */
 /* eslint-disable no-unused-vars */
-/* eslint-disable no-console */
+/* eslint-disable import/no-extraneous-dependencies */
+
 const express = require('express');
+const session = require('express-session');
 
 const app = express();
-const PORT = 8080;
+const PORT = 8080; // default port 8080
 
-// Function to generate a random string
 function generateRandomString() {
-  const length = 6;
-  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let result = '';
-  for (let i = 0; i < length; i++) {
+  const characters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let randomString = '';
+
+  for (let i = 0; i < 6; i++) {
     const randomIndex = Math.floor(Math.random() * characters.length);
-    result += characters[randomIndex];
+    randomString += characters[randomIndex];
   }
-  return result;
+
+  return randomString;
 }
 
-// Set EJS as the view engine
 app.set('view engine', 'ejs');
-
 const urlDatabase = {
   b2xVn2: 'http://www.lighthouselabs.ca',
   '9sm5xK': 'http://www.google.com',
 };
 
-// Middleware to parse URL-encoded data
 app.use(express.urlencoded({ extended: true }));
 
-// Root path handler
-app.get('/', (req, res) => {
-  res.send('Hello!');
-});
+// Session handling middleware
+app.use(
+  session({
+    secret: 'your-secret-key',
+    resave: false,
+    saveUninitialized: true,
+  }),
+);
 
-// Endpoint to return urlDatabase as JSON
-app.get('/urls.json', (req, res) => {
-  res.json(urlDatabase);
-});
-
-// Endpoint to send HTML response
 app.get('/hello', (req, res) => {
   res.send('<html><body>Hello <b>World</b></body></html>\n');
 });
-// dummy response
-app.post('/urls', (req, res) => {
-  console.log(req.body); // Log the POST request body to the console
-  res.send('Ok'); // Respond with 'Ok' (we will replace this)
+app.get('/urls', (req, res) => {
+  const templateVars = { urls: urlDatabase };
+  res.render('urls_index', templateVars);
 });
-
-// Add GET route for creating a new URL
 app.get('/urls/new', (req, res) => {
   res.render('urls_new');
 });
+app.get('/urls/:id', (req, res) => {
+  const shortURL = req.params.id;
+  const longURL = urlDatabase[shortURL];
 
-// Add POST route for updating a URL
-app.post('/urls/:id', (req, res) => {
-  const { longURL } = req.body;
-  const { id } = req.params;
-  if (urlDatabase[id]) {
-    urlDatabase[id].longURL = longURL;
-    res.redirect('/urls');
+  if (longURL) {
+    const templateVars = {
+      shortURL, longURL, id: shortURL, url: { id: shortURL, longURL },
+    };
+    res.render('urls_show', templateVars);
   } else {
-    res.status(403).send('Not permitted');
+    res.status(404).send('Short URL not found');
   }
 });
 
-// Add POST route for creating a new URL
-app.post('/urls', (req, res) => {
-  const { longURL } = req.body;
-  const shortURL = generateRandomString();
-  urlDatabase[shortURL] = { longURL };
-  res.redirect(`/urls/${shortURL}`);
+app.get('/urls.json', (req, res) => {
+  res.json(urlDatabase);
+});
+app.post('/urls/:id', (req, res) => {
+  const { id } = req.params;
+  const newLongURL = req.body.longURL;
+
+  // Find the URL with the matching ID in your in-memory object
+  const url = urlDatabase[id];
+  if (url) {
+    // Update the longURL value
+    urlDatabase[id] = newLongURL;
+    res.redirect('/urls');
+  } else {
+    res.status(404).send('URL not found');
+  }
 });
 
-// Add POST route for deleting a URL
 app.post('/urls/:shortURL/delete', (req, res) => {
   const { shortURL } = req.params;
-  if (urlDatabase[shortURL]) {
+  const { userID } = req.session;
+
+  if (userID && urlDatabase[shortURL] && urlDatabase[shortURL].userID === userID) {
     delete urlDatabase[shortURL];
     res.redirect('/urls');
   } else {
     res.status(403).send('Not permitted');
   }
 });
+// login
+app.post('/login', (req, res) => {
+  const { username } = req.body;
+  res.cookie('username', username);
+  res.redirect('/urls');
+});
 
-// Start the server
 app.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
+  console.log(`Example app listening on port ${PORT}!`);
 });
