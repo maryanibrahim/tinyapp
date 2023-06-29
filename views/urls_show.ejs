@@ -13,23 +13,20 @@
 
   <body>
     <%- include('partials/_header') %>
-    <div class="card text-center">
-      <div class="card-header"></div>
+    <div class="card">
       <div class="card-body">
         <h5 class="card-title">TinyURL for: <%= longURL %></h5>
-        <p class="card-text">Short URL: <a href="/u/<%= shortURL %>"><%= shortURL %></a>
+        <p class="card-text">
+          Short URL ID: <a href="/u/<%= id %>"><%= id %></a>
         </p>
-      </div>
-      <div class="card-footer text-muted">
-        <form action='/urls/<%= shortURL %>' method="post">
-          <h3>Edit</h3>
-          <label form="name"> New URL : </label>
-          <input type="text" name="longURL" id="longURL" placeholder="<%= longURL %>">
-          <button type="submit">Submit</button>
+        <form method="POST" action="/urls/<%= url.id %>">
+          <input type="text" name="longURL" value="<%= url.longURL %>">
+          <button type="submit">Update URL</button>
         </form>
         
       </div>
     </div>
+    
     <!-- Bootstrap JS -->
     <script
       src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
