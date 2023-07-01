@@ -26,6 +26,16 @@ const urlDatabase = {
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
+// Middleware to check if user is logged in
+const requireLogin = (req, res, next) => {
+  const user = users[req.session.user_id];
+  if (!user) {
+    res.redirect('/login');
+  } else {
+    next();
+  }
+};
+
 // Session handling middleware
 app.use(
   session({
@@ -58,13 +68,25 @@ const getUserByEmail = (email) => {
 //get
 // Login form
 app.get('/login', (req, res) => {
-  res.render('login');
+  const user = users[req.session.user_id];
+  if (user) {
+    res.redirect('/urls');
+  } else {
+    res.render('urls_login', { user }); // Pass the user object to the view
+  }
 });
+
 
 // Register form
 app.get('/register', (req, res) => {
-  res.render('register');
+  const user = users[req.session.user_id];
+  if (user) {
+    res.redirect('/urls');
+  } else {
+    res.render('urls_register', { user });
+  }
 });
+
 
 // Main page showing URLs
 app.get('/urls', (req, res) => {
@@ -76,12 +98,13 @@ app.get('/urls', (req, res) => {
 });
 
 // Create new URL page
-app.get('/urls/new', (req, res) => {
+app.get('/urls/new', requireLogin, (req, res) => {
   const templateVars = {
     user: users[req.session.user_id], // Pass the user object based on the 'user_id' session property
   };
   res.render('urls_new', templateVars);
 });
+
 
 // Show individual URL page
 app.get('/urls/:id', (req, res) => {
@@ -101,6 +124,18 @@ app.get('/urls/:id', (req, res) => {
     res.status(404).send('Short URL not found');
   }
 });
+// Redirect to the long URL
+app.get('/u/:id', (req, res) => {
+  const shortURL = req.params.id;
+  const longURL = urlDatabase[shortURL];
+
+  if (longURL) {
+    res.redirect(longURL);
+  } else {
+    res.status(404).send('Short URL not found');
+  }
+});
+
 //post
 // Login route
 app.post('/login', (req, res) => {
@@ -121,6 +156,21 @@ app.post('/login', (req, res) => {
   // Redirect to /urls
   res.redirect('/urls');
 });
+
+// POST /urls endpoint
+app.post('/urls', requireLogin, (req, res) => {
+  const longURL = req.body.longURL;
+
+  // Generate a random short URL
+  const shortURL = generateRandomString();
+
+  // Store the new URL in the urlDatabase
+  urlDatabase[shortURL] = longURL;
+
+  // Redirect to the page showing the new URL
+  res.redirect(`/urls/${shortURL}`);
+});
+
 
 // Logout route
 app.post('/logout', (req, res) => {
