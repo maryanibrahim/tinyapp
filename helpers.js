@@ -49,8 +49,6 @@ const urlsForUser = (id, db) => {
   return userURLs;
 };
 
-
-
 // added it for mocha testing to match compass
 const getUserByEmail = (email, db) => {
   // loop in database keys
@@ -63,7 +61,10 @@ const getUserByEmail = (email, db) => {
   return undefined;
 };
 
-
-
-
-module.exports = { generateRandomString,findEmail, findPassword, findUserID, urlsForUser, getUserByEmail };
+module.exports = { generateRandomString,
+  findEmail, 
+  findPassword, 
+  findUserID, 
+  urlsForUser, 
+  getUserByEmail 
+};

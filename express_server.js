@@ -1,40 +1,31 @@
-//express
-const express = require("express");
+const express = require('express');
 const app = express();
-
-//port
 const PORT = 8080;
-
-//ejs
-app.set("view engine", "ejs");
-
-//body parser
-const bodyParser = require("body-parser");
-// Parse incoming requests with JSON payloads
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
-
-// password hasher
 const bcrypt = require('bcrypt');
 const saltRounds = 10;
-
-// helper functions
-const { generateRandomString, findEmail, findPassword, findUserID, urlsForUser } = require("./helpers");
-
-//cookie-session
 const cookieSession = require('cookie-session');
+
+
+const {
+  generateRandomString,
+  findEmail,
+  urlsForUser,
+  getUserByEmail
+} = require("./helpers");
+
+app.set("view engine", "ejs");
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieSession({
   name: 'session',
   keys: ['7f69fa85-caec-4d9c-acd7-eebdccb368d5', 'f13b4d38-41c4-46d3-9ef6-8836d03cd8eb']
 }));
 
-
-// newdatabase with id
 const urlDatabase = {
-  b2xVn2: 'http://www.lighthouselabs.ca',
-  '9sm5xK': 'http://www.google.com',
+  b2xVn2: { longURL: 'http://www.lighthouselabs.ca' },
+  '9sm5xK': { longURL: 'http://www.google.com' }
 };
-// user database
+
 const users = {
   "abcd": {
     id: "abcd",
@@ -43,44 +34,47 @@ const users = {
   },
 };
 
-//GET
-
-//login form
+// Login page
 app.get("/login", (req, res) => {
   const templateVars = {
-    user: users[req.session["userID"]]
+    user: users[req.session.userID]
   };
   res.render("urls_login", templateVars);
 });
 
-//register form
+// Register page
 app.get("/register", (req, res) => {
   const templateVars = {
-    user: users[req.session["userID"]]
+    user: users[req.session.userID]
   };
   res.render("urls_register", templateVars);
 });
 
-//main page
+// Main page showing URLs
 app.get("/urls", (req, res) => {
   const templateVars = {
     urls: urlsForUser(req.session.userID, urlDatabase),
-    user: users[req.session["userID"]]
+    user: users[req.session.userID]
   };
   res.render("urls_index", templateVars);
 });
 
-
+// Redirect to the long URL associated with the given shortURL
 app.get("/u/:shortURL", (req, res) => {
-  const longURL = urlDatabase[req.params.shortURL].longURL;
-  res.redirect(longURL);
+  const shortURL = req.params.shortURL;
+  const urlEntry = urlDatabase[shortURL];
+
+  if (urlEntry && urlEntry.longURL) {
+    res.redirect(urlEntry.longURL);
+  } else {
+    res.status(404).send("404 Error: This Short URL doesn't exist");
+  }
 });
 
-//new URLS
+// Create a new URL page
 app.get("/urls/new", (req, res) => {
-  // user should not see this page if not logged in
   const templateVars = {
-    user: users[req.session["userID"]]
+    user: users[req.session.userID]
   };
   if (!req.session.userID) {
     res.redirect("/login");
@@ -89,109 +83,118 @@ app.get("/urls/new", (req, res) => {
   }
 });
 
-//edit / show tiny url
+// Edit/Show Tiny URL page
 app.get("/urls/:shortURL", (req, res) => {
-  if (!req.session["userID"]) {
-    res.status(400).send("400 error ! Please Login or Register");
-  } else if (!urlDatabase[req.params.shortURL]) {
-    res.status(404).send("404 not found! This URL doesn't exist");
-  } else if (urlDatabase[req.params.shortURL].userID === req.session["userID"]) {
+  const shortURL = req.params.shortURL;
+  const longURL = urlDatabase[shortURL] ? urlDatabase[shortURL].longURL : null;
+  
+  if (!req.session.userID) {
+    res.status(400).send("400 Error: Please Login or Register");
+  } else if (!urlDatabase[shortURL]) {
+    res.status(404).send("404 Error: This URL doesn't exist");
+  } else if (urlDatabase[shortURL].userID !== req.session.userID) {
+    res.status(403).send("403 Error: This is not your URL");
+  } else {
     const templateVars = {
-      shortURL: req.params.shortURL,
-      longURL: urlDatabase[req.params.shortURL].longURL,
-      user: users[req.session["userID"]]
+      shortURL: shortURL,
+      longURL: longURL,
+      user: users[req.session.userID]
     };
     res.render("urls_show", templateVars);
-  } else if (urlDatabase[req.params.shortURL].userID !== req.session["userID"]) {
-    res.status(403).send("403 error ! This is not your URL");
-  } else {
-    res.status(400).send("400 error ! Please Login");
   }
 });
 
-
-//POST
-
-// generate new id and store register
+// Register new user
 app.post("/register", (req, res) => {
-  const newUserID = generateRandomString();
   const email = req.body.email;
   const password = req.body.password;
-  const userObj = {
-    id: newUserID,
-    email: email,
-    password: bcrypt.hashSync(password, saltRounds)
-  };
   const userEmail = findEmail(email, users);
-  if (userObj.email === "" || userObj.password === "") {
-    res.status(400).send("400 error ! Please Provide Information");
-  } else if (!userEmail) {
+
+  if (email === "" || password === "") {
+    res.status(400).send("400 Error: Please Provide Information");
+  } else if (userEmail) {
+    res.status(400).send("400 Error: Email already registered");
+  } else {
+    const newUserID = generateRandomString();
+    const userObj = {
+      id: newUserID,
+      email: email,
+      password: bcrypt.hashSync(password, saltRounds)
+    };
     users[newUserID] = userObj;
-    req.session["userID"] = newUserID;
+    req.session.userID = newUserID;
     res.redirect("/urls");
-  } else {
-    res.status(400).send("400 error ! Please Login");
   }
 });
 
-
-// edit urls
+// Edit a URL
 app.post("/urls/:id", (req, res) => {
-  if (urlDatabase[req.params.id].userID === req.session["userID"]) {
-    let longURL = req.body.longURL;
-    urlDatabase[req.params.id].longURL = longURL;
-    res.redirect('/urls');
+  const shortURL = req.params.id;
+  const longURL = req.body.longURL;
+
+  if (urlDatabase[shortURL]) {
+    if (urlDatabase[shortURL].userID === req.session.userID) {
+      urlDatabase[shortURL].longURL = longURL;
+      res.redirect("/urls");
+    } else {
+      res.status(403).send("403 Forbidden: Not permitted");
+    }
   } else {
-    res.status(403).send("Not permitted");
+    res.status(404).send("404 Not Found: This URL doesn't exist");
   }
 });
 
-//generate random shurt url + add to database
+// Create a new URL
 app.post("/urls", (req, res) => {
   const longURL = req.body.longURL;
-  const userID = req.session["userID"];
-  const shortURL = generateRandomString();
-  urlDatabase[shortURL] = { longURL, userID };
-  res.redirect(`/urls/${shortURL}`);
-});
-
-// delete url
-app.post("/urls/:shortURL/delete", (req, res) => {
-  console.log(urlDatabase[req.params.shortURL].userID);
-  if (urlDatabase[req.params.shortURL].userID === req.session["userID"]) {
-    delete urlDatabase[req.params.shortURL];
-    res.redirect("/urls");
+  const userID = req.session.userID;
+  
+  if (longURL === "") {
+    res.status(400).send("400 Error: Please provide a valid URL");
   } else {
-    res.status(403).send("Not permitted");
+    const shortURL = generateRandomString();
+    urlDatabase[shortURL] = { longURL, userID };
+    res.redirect(`/urls/${shortURL}`);
   }
 });
 
-//Authentification process
+// Delete a URL
+app.post("/urls/:shortURL/delete", (req, res) => {
+  const shortURL = req.params.shortURL;
+  if (urlDatabase[shortURL] && urlDatabase[shortURL].userID === req.session.userID) {
+    delete urlDatabase[shortURL];
+    res.redirect("/urls");
+  } else {
+    res.status(403).send("403 Forbidden: Not permitted");
+  }
+});
+
+// Authentication process
 app.post("/login", (req, res) => {
   const email = req.body.email;
   const password = req.body.password;
-  const userEmail = findEmail(email, users);
-  const userPassword = findPassword(email, users);
-  if (email === userEmail) {
-    if (bcrypt.compareSync(password, userPassword)) {
-      const userID = findUserID(email, users);
-      // set cookie with user id
-      req.session["userID"] = userID;
+  const user = getUserByEmail(email, users);
+
+  if (user) {
+    if (bcrypt.compareSync(password, user.password)) {
+      // Password is correct
+      req.session.userID = user.id;
       res.redirect("/urls");
     } else {
-      res.status(403).send("403 Forbidden: Wrong Password");
+      // Wrong password
+      res.status(403).send("403 Error: Wrong Password");
     }
   } else {
-    res.status(403).send("403 Forbidden : Please Register");
+    // Email not found
+    res.status(403).send("403 Error: Please Register");
   }
 });
 
-//logout
+// User logout
 app.post("/logout", (req, res) => {
-  req.session["userID"] = null;
+  req.session.userID = null;
   res.redirect("/urls");
 });
-
 
 app.listen(PORT, () => {
   console.log(`TinyApp listening on port ${PORT}!`);
