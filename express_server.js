@@ -1,11 +1,15 @@
+// express
 const express = require('express');
 const app = express();
+
+// port
 const PORT = 8080;
-const bcrypt = require('bcrypt');
+
+// bcryptjs
+const bcryptjs = require('bcryptjs');
 const saltRounds = 10;
-const cookieSession = require('cookie-session');
 
-
+// helpers
 const {
   generateRandomString,
   findEmail,
@@ -13,24 +17,32 @@ const {
   getUserByEmail
 } = require("./helpers");
 
+// ejs
 app.set("view engine", "ejs");
+
 app.use(express.json());
+
 app.use(express.urlencoded({ extended: true }));
+
+// cookieSession
+const cookieSession = require('cookie-session');
 app.use(cookieSession({
   name: 'session',
   keys: ['7f69fa85-caec-4d9c-acd7-eebdccb368d5', 'f13b4d38-41c4-46d3-9ef6-8836d03cd8eb']
 }));
 
+// database
 const urlDatabase = {
   b2xVn2: { longURL: 'http://www.lighthouselabs.ca' },
   '9sm5xK': { longURL: 'http://www.google.com' }
 };
 
+// user database
 const users = {
   "abcd": {
     id: "abcd",
     email: "m@yahoo.com",
-    password: bcrypt.hashSync("2", saltRounds)
+    password: bcryptjs.hashSync("2", saltRounds)
   },
 };
 
@@ -108,19 +120,25 @@ app.get("/urls/:shortURL", (req, res) => {
 app.post("/register", (req, res) => {
   const email = req.body.email;
   const password = req.body.password;
-  const userEmail = findEmail(email, users);
 
   if (email === "" || password === "") {
     res.status(400).send("400 Error: Please Provide Information");
-  } else if (userEmail) {
+  } else if (findEmail(email, users)) {
     res.status(400).send("400 Error: Email already registered");
+  } else if (password.length < 8) {
+    res.status(400).send("400 Error: Password should be at least 8 characters long");
+  } else if (!password.match(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{8,}$/)) {
+    res.status(400).send("400 Error: Password should contain at least one lowercase letter, one uppercase letter, and one digit");
   } else {
     const newUserID = generateRandomString();
+    const hashedPassword = bcryptjs.hashSync(password, 10);
+
     const userObj = {
       id: newUserID,
       email: email,
-      password: bcrypt.hashSync(password, saltRounds)
+      password: hashedPassword
     };
+
     users[newUserID] = userObj;
     req.session.userID = newUserID;
     res.redirect("/urls");
@@ -176,7 +194,7 @@ app.post("/login", (req, res) => {
   const user = getUserByEmail(email, users);
 
   if (user) {
-    if (bcrypt.compareSync(password, user.password)) {
+    if (bcryptjs.compareSync(password, user.password)) {
       // Password is correct
       req.session.userID = user.id;
       res.redirect("/urls");
