@@ -46,6 +46,16 @@ const users = {
   },
 };
 
+// root - GET
+// redirects to /urls if logged in, otherwise to /login
+app.get('/', (req, res) => {
+  if (req.session.userID) {
+    res.redirect('/urls');
+  } else {
+    res.redirect('/login');
+  }
+});
+
 // Login page
 app.get("/login", (req, res) => {
   const templateVars = {
@@ -213,6 +223,15 @@ app.post("/logout", (req, res) => {
   req.session.userID = null;
   res.redirect("/urls");
 });
+
+// User logout
+// clears cookies and redirects to urls index page
+app.post('/logout', (req, res) => {
+  res.clearCookie('session');
+  res.clearCookie('session.sig');
+  res.redirect('/urls');
+});
+
 
 app.listen(PORT, () => {
   console.log(`TinyApp listening on port ${PORT}!`);
