@@ -224,15 +224,6 @@ app.post("/logout", (req, res) => {
   res.redirect("/urls");
 });
 
-// User logout
-// clears cookies and redirects to urls index page
-app.post('/logout', (req, res) => {
-  res.clearCookie('session');
-  res.clearCookie('session.sig');
-  res.redirect('/urls');
-});
-
-
 app.listen(PORT, () => {
   console.log(`TinyApp listening on port ${PORT}!`);
 });
