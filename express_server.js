@@ -218,11 +218,24 @@ app.post("/login", (req, res) => {
   }
 });
 
-// User logout
-app.post("/logout", (req, res) => {
-  req.session.userID = null;
-  res.redirect("/urls");
+app.post('/logout', (req, res) => {
+  // Clear the session data
+  req.session = null;
+  
+  // Destroy the session
+  req.session.destroy((err) => {
+    if (err) {
+      console.error('Error destroying session:', err);
+    }
+    
+    // Clear the session cookie
+    res.clearCookie('cookie-session');
+    
+    // Redirect the user
+    res.redirect('/urls');
+  });
 });
+
 
 app.listen(PORT, () => {
   console.log(`TinyApp listening on port ${PORT}!`);
